@@ -2,8 +2,9 @@ package lzo
 
 import (
 	"bytes"
-	_ "fmt"
 	"io"
+	"io/ioutil"
+	"strings"
 	"testing"
 )
 
@@ -230,15 +231,16 @@ var lzoTests = []lzoTest{
 
 func TestCompressor(t *testing.T) {
 	for _, tt := range lzoTests {
+		in := strings.NewReader(tt.raw)
 		buf := new(bytes.Buffer)
 		lzo := NewWriter(buf)
-		_, err := lzo.Write([]byte(tt.raw))
+		_, err := io.Copy(lzo, in)
 		if err != nil {
 			t.Errorf("%s: Write: %s", tt.name, err)
 		}
-		// if !bytes.Equal(buf.Bytes(), tt.lzo) {
-		// 	t.Errorf("%s: got %#v want %#v", tt.name, buf, tt.lzo)
-		// }
+		if !bytes.Equal(buf.Bytes(), tt.lzo) {
+			t.Errorf("%s: got %#v want %#v", tt.name, buf.Bytes(), tt.lzo)
+		}
 	}
 }
 
@@ -264,5 +266,32 @@ func TestDecompressor(t *testing.T) {
 		if s != tt.raw {
 			t.Errorf("%s: got %d-byte %q want %d-byte %q", tt.name, n, s, len(tt.raw), tt.raw)
 		}
+	}
+}
+
+func TestRoundTrip(t *testing.T) {
+	buf := new(bytes.Buffer)
+	w := NewWriter(buf)
+	w.Name = "name"
+	if _, err := w.Write([]byte("payload")); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	r, err := NewReader(buf)
+	if err != nil {
+		t.Fatalf("NewReader: %v", err)
+	}
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if string(b) != "payload" {
+		t.Fatalf("payload is %q, want %q", string(b), "payload")
+	}
+	if r.Name != "name" {
+		t.Fatalf("name is %q, want %q", r.Name, "name")
+	}
+	if err := r.Close(); err != nil {
+		t.Fatalf("Reader.Close: %v", err)
 	}
 }
