@@ -39,7 +39,7 @@ func compress(level int, path string) error {
 	} else if level < lzo.BestSpeed {
 		level = lzo.BestSpeed
 	} else {
-		level = lzo.BestSpeed
+		level = lzo.DefaultCompression
 	}
 	input, err := os.Open(path)
 	if err != nil {
