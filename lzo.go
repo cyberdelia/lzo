@@ -59,12 +59,16 @@ func init() {
 	}
 }
 
+// Lzop file stores a header giving metadata about the compressed file.
+// That header is exposed as the fields of the Writer and Reader structs.
 type Header struct {
 	ModTime time.Time
 	Name    string
 	flags   uint32
 }
 
+// A Reader is an io.Reader that can be read to retrieve
+// uncompressed data from a lzop-format compressed file.
 type Reader struct {
 	Header
 	r       io.Reader
@@ -75,6 +79,7 @@ type Reader struct {
 	err     error
 }
 
+// NewReader creates a new Reader reading the given reader.
 func NewReader(r io.Reader) (*Reader, error) {
 	z := new(Reader)
 	z.r = r
@@ -377,6 +382,8 @@ func lzoDecompress(src []byte, dst []byte) (int, error) {
 	return dstLen, nil
 }
 
+// A Writer is an io.Write that satisfies writes by compressing data written
+// to its wrapped io.Writer.
 type Writer struct {
 	Header
 	w          io.Writer
@@ -387,11 +394,15 @@ type Writer struct {
 	crc32      hash.Hash32
 }
 
+// NewWriter creates a new Writer that satisfies writes by compressing data
+// written to w.
 func NewWriter(w io.Writer) *Writer {
 	z, _ := NewWriterLevel(w, DefaultCompression)
 	return z
 }
 
+// NewWriterLevel is like NewWriter but specifies the compression level instead
+// of assuming DefaultCompression.
 func NewWriterLevel(w io.Writer, level int) (*Writer, error) {
 	if level < DefaultCompression || level > BestCompression {
 		return nil, fmt.Errorf("lzo: invalid compression level: %d", level)
