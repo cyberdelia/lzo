@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"strings"
 	"testing"
 )
 
@@ -227,21 +226,6 @@ var lzoTests = []lzoTest{
 		},
 		nil,
 	},
-}
-
-func TestCompressor(t *testing.T) {
-	for _, tt := range lzoTests {
-		in := strings.NewReader(tt.raw)
-		buf := new(bytes.Buffer)
-		lzo := NewWriter(buf)
-		_, err := io.Copy(lzo, in)
-		if err != nil {
-			t.Errorf("%s: Write: %s", tt.name, err)
-		}
-		if !bytes.Equal(buf.Bytes(), tt.lzo) {
-			t.Errorf("%s: got %#v want %#v", tt.name, buf.Bytes(), tt.lzo)
-		}
-	}
 }
 
 func TestDecompressor(t *testing.T) {
