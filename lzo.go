@@ -21,6 +21,7 @@ import (
 	"io"
 	"time"
 	"unsafe"
+	"strconv"
 )
 
 const (
@@ -53,10 +54,32 @@ var (
 	ErrCorrupt = errors.New("lzo: data corruption")
 )
 
+var lzoErrors = []string{
+	1: "data corrupted",
+	2: "out of memory",
+	4: "input overrun",
+	5: "output overrun",
+	6: "data corrupted",
+	7: "eof not found",
+	8: "input not consumed",
+}
+
 func init() {
 	if err := C.lzo_initialize(); err != 0 {
 		panic("lzo: can't initialize")
 	}
+}
+
+type errno int
+
+func (e errno) Error() string {
+	if 0 <= int(e) && int(e) < len(lzoErrors) {
+		s := lzoErrors[e]
+		if s != "" {
+			return "lzo: " + s
+		}
+	}
+	return "lzo: errno " + strconv.Itoa(int(e))
 }
 
 // Lzop file stores a header giving metadata about the compressed file.
@@ -377,7 +400,7 @@ func lzoDecompress(src []byte, dst []byte) (int, error) {
 	err := C.lzo1x_decompress_safe((*C.uchar)(unsafe.Pointer(&src[0])), C.lzo_uint(len(src)),
 		(*C.uchar)(unsafe.Pointer(&dst[0])), (*C.lzo_uint)(unsafe.Pointer(&dstLen)), nil)
 	if err != 0 {
-		return 0, fmt.Errorf("lzo: errno %d", err)
+		return 0, errno(err)
 	}
 	return dstLen, nil
 }
