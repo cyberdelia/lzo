@@ -1,16 +1,16 @@
 package main
 
 import (
-	"github.com/cyberdelia/lzo"
 	"flag"
-	"os"
-	"io"
 	"fmt"
+	"github.com/cyberdelia/lzo"
+	"io"
+	"os"
 )
 
 var (
 	uncompress = flag.Bool("decompress", false, "Decompress.")
-	level = flag.Int("level", 3, "Compression level.")
+	level      = flag.Int("level", 3, "Compression level.")
 )
 
 func decompress(path string) error {
