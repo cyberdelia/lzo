@@ -553,10 +553,6 @@ func (z *Writer) Write(p []byte) (int, error) {
 	if z.err != nil {
 		return 0, z.err
 	}
-	if len(p) == 0 {
-		return 0, nil
-	}
-	var compressed []byte
 	// Write headers
 	if z.compressor == nil {
 		if z.level == BestCompression {
@@ -584,23 +580,20 @@ func (z *Writer) Write(p []byte) (int, error) {
 		return 0, z.err
 	}
 	// Compute uncompressed block checksum
-	var srcChecksum uint32
 	z.adler32.Reset()
 	z.adler32.Write(p)
-	srcChecksum = z.adler32.Sum32()
+	srcChecksum := z.adler32.Sum32()
 	// Compress
+	var compressed []byte
 	compressed, z.err = z.compressor(p)
 	if z.err != nil {
 		return 0, z.err
 	}
-	if len(compressed) > srcLen {
+	// Write compressed block size
+	if len(compressed) >= srcLen {
 		compressed = p
 	}
-	// Write compressed block size
 	dstLen := len(compressed)
-	if z.err != nil {
-		return 0, z.err
-	}
 	_, z.err = z.writeUint32(uint32(dstLen))
 	if z.err != nil {
 		return 0, z.err
@@ -611,17 +604,9 @@ func (z *Writer) Write(p []byte) (int, error) {
 		return 0, z.err
 	}
 	// Write compressed block checksum
-	var dstChecksum uint32
-	if z.flags&flagAdler32D != 0 {
-		z.adler32.Reset()
-		z.adler32.Write(compressed)
-		dstChecksum = z.adler32.Sum32()
-	}
-	if z.flags&flagCRC32D != 0 {
-		z.crc32.Reset()
-		z.crc32.Write(compressed)
-		dstChecksum = z.crc32.Sum32()
-	}
+	z.adler32.Reset()
+	z.adler32.Write(compressed)
+	dstChecksum := z.adler32.Sum32()
 	if dstLen < srcLen {
 		_, z.err = z.writeUint32(dstChecksum)
 		if z.err != nil {
@@ -634,6 +619,12 @@ func (z *Writer) Write(p []byte) (int, error) {
 		return 0, z.err
 	}
 	return srcLen, z.err
+}
+
+// Close closes the Writer. It does not close the underlying io.Writer.
+func (z *Writer) Close() error {
+	_, z.err = z.writeUint32(uint32(0))
+	return z.err
 }
 
 func lzoVersion() uint16 {

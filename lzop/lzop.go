@@ -50,6 +50,7 @@ func compress(level int, path string) error {
 		return err
 	}
 	compressor, err := lzo.NewWriterLevel(output, level)
+	defer compressor.Close()
 	compressor.Name = input.Name()
 	if err != nil {
 		return err
