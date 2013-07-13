@@ -388,6 +388,7 @@ func (z *Reader) Read(p []byte) (int, error) {
 	}
 }
 
+// Close closes the Reader. It does not close the underlying io.Reader.
 func (z *Reader) Close() error {
 	if z.err == io.EOF {
 		return nil
@@ -547,6 +548,7 @@ func (z *Writer) writeUint32(v uint32) (int, error) {
 	return z.w.Write(buf)
 }
 
+// Write writes a compressed form of p to the underlying io.Writer.
 func (z *Writer) Write(p []byte) (int, error) {
 	if z.err != nil {
 		return 0, z.err
