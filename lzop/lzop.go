@@ -71,6 +71,6 @@ func main() {
 		err = compress(*level, path)
 	}
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("lzop:", err)
 	}
 }
