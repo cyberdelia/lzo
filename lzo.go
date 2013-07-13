@@ -19,9 +19,9 @@ import (
 	"hash/adler32"
 	"hash/crc32"
 	"io"
+	"strconv"
 	"time"
 	"unsafe"
-	"strconv"
 )
 
 const (
@@ -398,7 +398,7 @@ func (z *Reader) Close() error {
 
 func lzoDecompress(src []byte, dst []byte) (int, error) {
 	dstLen := len(dst)
-	err := C.lzo1x_decompress_safe((*C.uchar)(unsafe.Pointer(&src[0])), C.lzo_uint(len(src)),
+	err := C.lzo1x_decompress((*C.uchar)(unsafe.Pointer(&src[0])), C.lzo_uint(len(src)),
 		(*C.uchar)(unsafe.Pointer(&dst[0])), (*C.lzo_uint)(unsafe.Pointer(&dstLen)), nil)
 	if err != 0 {
 		return 0, errno(err)
