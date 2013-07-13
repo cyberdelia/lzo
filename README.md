@@ -1,7 +1,7 @@
 # lzo
 
 lzo implements reading and writing of lzo format compressed files for Go, following lzop format.
-It uses the lzo C libary underneath.
+It uses the lzo C library underneath.
 
 ## Installation
 
