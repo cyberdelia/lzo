@@ -105,9 +105,9 @@ type Reader struct {
 // NewReader creates a new Reader reading the given reader.
 func NewReader(r io.Reader) (*Reader, error) {
 	z := new(Reader)
-	z.r = r
 	z.adler32 = adler32.New()
 	z.crc32 = crc32.NewIEEE()
+	z.r = io.TeeReader(r, io.MultiWriter(z.adler32, z.crc32))
 	if err := z.readHeader(); err != nil {
 		return nil, err
 	}
@@ -123,9 +123,11 @@ func (z *Reader) readHeader() error {
 	if !bytes.Equal(z.buf[0:len(lzoMagic)], lzoMagic) {
 		return ErrHeader
 	}
+	z.crc32.Reset()
+	z.adler32.Reset()
 	// Read version
 	var version uint16
-	version, err = z.readUint16()
+	err = z.read(&version)
 	if err != nil {
 		return err
 	}
@@ -134,12 +136,12 @@ func (z *Reader) readHeader() error {
 	}
 	// Read library version needed to extract
 	var libraryVersion uint16
-	libraryVersion, err = z.readUint16()
+	err = z.read(&libraryVersion)
 	if err != nil {
 		return err
 	}
 	if version >= 0x0940 {
-		libraryVersion, err = z.readUint16()
+		err = z.read(&libraryVersion)
 		if err != nil {
 			return err
 		}
@@ -151,44 +153,48 @@ func (z *Reader) readHeader() error {
 		}
 	}
 	// Read method
-	var method byte
-	method, err = z.readByte()
+	var method uint8
+	err = z.read(&method)
 	if err != nil {
 		return err
 	}
 	// Read level
+	var level uint8
 	if version >= 0x0940 {
-		_, err = z.readByte()
+		err = z.read(&level)
 		if err != nil {
 			return err
 		}
 	}
 	// Read flags
-	z.flags, err = z.readUint32()
+	err = z.read(&z.flags)
 	if err != nil {
 		return err
 	}
 	// Read filters
+	var filters uint32
 	if z.flags&flagFilter != 0 {
-		_, err = z.readUint32()
+		err = z.read(&filters)
 		if err != nil {
 			return err
 		}
 	}
 	// Read mode
-	_, err = z.readUint32()
+	var mode uint32
+	err = z.read(&mode)
 	if err != nil {
 		return err
 	}
 	// Read modification times
-	modTime, err := z.readUint32()
+	var modTime, modTimeHigh uint32
+	err = z.read(&modTime)
 	if err != nil {
 		return err
 	}
 	z.ModTime = time.Unix(int64(modTime), 0)
 	// Read mod time high
 	if version >= 0x0940 {
-		_, err := z.readUint32()
+		err = z.read(&modTimeHigh)
 		if err != nil {
 			return err
 		}
@@ -197,7 +203,8 @@ func (z *Reader) readHeader() error {
 		z.ModTime = time.Unix(0, 0)
 	}
 	// Read name
-	l, err := z.readByte()
+	var l uint8
+	err = z.read(&l)
 	if err != nil {
 		return err
 	}
@@ -206,8 +213,6 @@ func (z *Reader) readHeader() error {
 		if err != nil {
 			return err
 		}
-		z.adler32.Write(z.buf[0:l])
-		z.crc32.Write(z.buf[0:l])
 		z.Name = string(z.buf[0:l])
 	}
 	// Read and check header checksum
@@ -220,7 +225,7 @@ func (z *Reader) readHeader() error {
 		z.adler32.Reset()
 	}
 	var checksumHeader uint32
-	checksumHeader, err = z.readUint32()
+	err = z.read(&checksumHeader)
 	if err != nil {
 		return err
 	}
@@ -233,40 +238,14 @@ func (z *Reader) readHeader() error {
 	return nil
 }
 
-func (z *Reader) readByte() (byte, error) {
-	_, err := io.ReadFull(z.r, z.buf[0:1])
-	if err != nil {
-		return 0, err
-	}
-	z.adler32.Write(z.buf[0:1])
-	z.crc32.Write(z.buf[0:1])
-	return z.buf[0], nil
-}
-
-func (z *Reader) readUint16() (uint16, error) {
-	_, err := io.ReadFull(z.r, z.buf[0:2])
-	if err != nil {
-		return 0, err
-	}
-	z.adler32.Write(z.buf[0:2])
-	z.crc32.Write(z.buf[0:2])
-	return binary.BigEndian.Uint16(z.buf[0:2]), nil
-}
-
-func (z *Reader) readUint32() (uint32, error) {
-	_, err := io.ReadFull(z.r, z.buf[0:4])
-	if err != nil {
-		return 0, err
-	}
-	z.adler32.Write(z.buf[0:4])
-	z.crc32.Write(z.buf[0:4])
-	return binary.BigEndian.Uint32(z.buf[0:4]), nil
+func (z *Reader) read(data interface{}) error {
+	return binary.Read(z.r, binary.BigEndian, data)
 }
 
 func (z *Reader) nextBlock() {
 	// Read uncompressed block size
 	var dstLen uint32
-	dstLen, z.err = z.readUint32()
+	z.err = z.read(&dstLen)
 	if z.err != nil {
 		return
 	}
@@ -276,7 +255,7 @@ func (z *Reader) nextBlock() {
 	}
 	// Read compressed block size
 	var srcLen uint32
-	srcLen, z.err = z.readUint32()
+	z.err = z.read(&srcLen)
 	if z.err != nil {
 		return
 	}
@@ -287,13 +266,13 @@ func (z *Reader) nextBlock() {
 	// Read checksum of uncompressed block
 	var dstChecksum uint32
 	if z.flags&flagAdler32D != 0 {
-		dstChecksum, z.err = z.readUint32()
+		z.err = z.read(&dstChecksum)
 		if z.err != nil {
 			return
 		}
 	}
 	if z.flags&flagCRC32D != 0 {
-		dstChecksum, z.err = z.readUint32()
+		z.err = z.read(&dstChecksum)
 		if z.err != nil {
 			return
 		}
@@ -302,7 +281,7 @@ func (z *Reader) nextBlock() {
 	var srcChecksum uint32
 	if z.flags&flagAdler32C != 0 {
 		if srcLen < dstLen {
-			srcChecksum, z.err = z.readUint32()
+			z.err = z.read(&srcChecksum)
 			if z.err != nil {
 				return
 			}
@@ -312,7 +291,7 @@ func (z *Reader) nextBlock() {
 	}
 	if z.flags&flagCRC32C != 0 {
 		if srcLen < dstLen {
-			srcChecksum, z.err = z.readUint32()
+			z.err = z.read(&srcChecksum)
 			if z.err != nil {
 				return
 			}
@@ -432,11 +411,11 @@ func NewWriterLevel(w io.Writer, level int) (*Writer, error) {
 		return nil, fmt.Errorf("lzo: invalid compression level: %d", level)
 	}
 	z := new(Writer)
-	z.w = w
 	z.ModTime = time.Now()
 	z.level = level
 	z.adler32 = adler32.New()
 	z.crc32 = crc32.NewIEEE()
+	z.w = io.MultiWriter(w, z.adler32, z.crc32)
 	return z, nil
 }
 
@@ -446,23 +425,25 @@ func (z *Writer) writeHeader() error {
 	if err != nil {
 		return err
 	}
+	z.adler32.Reset()
+	z.crc32.Reset()
 	// Write version
-	_, err = z.writeUint16(Version & 0xffff)
+	err = z.write(uint16(Version & 0xffff))
 	if err != nil {
 		return err
 	}
 	// Write library version
-	_, err = z.writeUint16(lzoVersion() & 0xffff)
+	err = z.write(uint16(lzoVersion() & 0xffff))
 	if err != nil {
 		return err
 	}
 	// Write library version needed to extract
-	_, err = z.writeUint16(0x0940)
+	err = z.write(uint16(0x0940))
 	if err != nil {
 		return err
 	}
 	// Write method
-	var method, level byte
+	var method, level uint8
 	if z.level == BestCompression {
 		method = 3
 		level = 9
@@ -470,12 +451,12 @@ func (z *Writer) writeHeader() error {
 		method = 1
 		level = 3
 	}
-	_, err = z.writeByte(method)
+	err = z.write(method)
 	if err != nil {
 		return err
 	}
 	// Write level
-	_, err = z.writeByte(byte(level))
+	err = z.write(level)
 	if err != nil {
 		return err
 	}
@@ -487,36 +468,38 @@ func (z *Writer) writeHeader() error {
 		z.flags |= flagStdin
 		z.flags |= flagStdout
 	}
-	_, err = z.writeUint32(z.flags)
+	err = z.write(z.flags)
 	if err != nil {
 		return err
 	}
 	// Write mode
-	_, err = z.writeUint32(0)
+	err = z.write(uint32(0))
 	if err != nil {
 		return err
 	}
 	// Write modification time
-	_, err = z.writeUint32(uint32(z.ModTime.Unix()))
+	err = z.write(uint32(z.ModTime.Unix()))
 	if err != nil {
 		return err
 	}
-	_, err = z.writeUint32(uint32(z.ModTime.Unix()) >> 16 >> 16)
+	err = z.write(uint32(z.ModTime.Unix()) >> 16 >> 16)
 	if err != nil {
 		return err
 	}
 	// Write file name
 	name := []byte(z.Name)
-	z.writeByte(byte(len(name)))
+	err = z.write(uint8(len(name)))
+	if err != nil {
+		return err
+	}
 	if z.Name != "" {
 		_, err := z.w.Write(name)
 		if err != nil {
 			return err
 		}
-		z.adler32.Write(name)
 	}
 	// Write header checksum
-	_, err = z.writeUint32(z.adler32.Sum32())
+	err = z.write(z.adler32.Sum32())
 	if err != nil {
 		return err
 	}
@@ -525,27 +508,8 @@ func (z *Writer) writeHeader() error {
 	return nil
 }
 
-func (z *Writer) writeByte(v byte) (int, error) {
-	buf := []byte{v}
-	z.adler32.Write(buf)
-	z.crc32.Write(buf)
-	return z.w.Write(buf)
-}
-
-func (z *Writer) writeUint16(v uint16) (int, error) {
-	buf := make([]byte, 2)
-	binary.BigEndian.PutUint16(buf, v)
-	z.adler32.Write(buf)
-	z.crc32.Write(buf)
-	return z.w.Write(buf)
-}
-
-func (z *Writer) writeUint32(v uint32) (int, error) {
-	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, v)
-	z.adler32.Write(buf)
-	z.crc32.Write(buf)
-	return z.w.Write(buf)
+func (z *Writer) write(v interface{}) error {
+	return binary.Write(z.w, binary.BigEndian, v)
 }
 
 // Write writes a compressed form of p to the underlying io.Writer.
@@ -571,7 +535,7 @@ func (z *Writer) Write(p []byte) (int, error) {
 	}
 	srcLen := len(p)
 	// Write uncompressed block size
-	_, z.err = z.writeUint32(uint32(srcLen))
+	z.err = z.write(uint32(srcLen))
 	if z.err != nil {
 		return 0, z.err
 	}
@@ -594,12 +558,12 @@ func (z *Writer) Write(p []byte) (int, error) {
 		compressed = p
 	}
 	dstLen := len(compressed)
-	_, z.err = z.writeUint32(uint32(dstLen))
+	z.err = z.write(uint32(dstLen))
 	if z.err != nil {
 		return 0, z.err
 	}
 	// Write uncompressed block checksum
-	_, z.err = z.writeUint32(srcChecksum)
+	z.err = z.write(srcChecksum)
 	if z.err != nil {
 		return 0, z.err
 	}
@@ -608,7 +572,7 @@ func (z *Writer) Write(p []byte) (int, error) {
 	z.adler32.Write(compressed)
 	dstChecksum := z.adler32.Sum32()
 	if dstLen < srcLen {
-		_, z.err = z.writeUint32(dstChecksum)
+		z.err = z.write(dstChecksum)
 		if z.err != nil {
 			return 0, z.err
 		}
@@ -623,7 +587,7 @@ func (z *Writer) Write(p []byte) (int, error) {
 
 // Close closes the Writer. It does not close the underlying io.Writer.
 func (z *Writer) Close() error {
-	_, z.err = z.writeUint32(uint32(0))
+	z.err = z.write(uint32(0))
 	return z.err
 }
 
