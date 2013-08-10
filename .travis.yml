@@ -4,4 +4,4 @@ go:
 before_install:
  - sudo apt-get update -qq
  - sudo apt-get install -qq liblzo2-dev
-script: go test -v github.com/cyberdelia/lzo
+script: go test -bench=. -v github.com/cyberdelia/lzo
