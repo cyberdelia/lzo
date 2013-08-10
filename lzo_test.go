@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"runtime"
 	"testing"
 )
 
@@ -291,5 +292,21 @@ func TestRoundTrip(t *testing.T) {
 	}
 	if err := r.Close(); err != nil {
 		t.Fatalf("Reader.Close: %v", err)
+	}
+}
+
+func BenchmarkCompressor(b *testing.B) {
+	raw := []byte(lzoTests[4].raw)
+	b.StopTimer()
+	b.SetBytes(int64(len(raw)))
+	runtime.GC()
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		w, err := NewWriterLevel(ioutil.Discard, DefaultCompression)
+		if err != nil {
+			b.Fatal(err)
+		}
+		w.Write(raw)
+		w.Close()
 	}
 }
