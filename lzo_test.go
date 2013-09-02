@@ -295,6 +295,21 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWriterReset(t *testing.T) {
+	buf := new(bytes.Buffer)
+	buf2 := new(bytes.Buffer)
+	z := NewWriter(buf)
+	msg := []byte("hello world")
+	z.Write(msg)
+	z.Close()
+	z.Reset(buf2)
+	z.Write(msg)
+	z.Close()
+	if buf.String() != buf2.String() {
+		t.Errorf("buf2 %q != original buf of %q", buf2.String(), buf.String())
+	}
+}
+
 func BenchmarkCompressor(b *testing.B) {
 	raw := []byte(lzoTests[4].raw)
 	b.StopTimer()
