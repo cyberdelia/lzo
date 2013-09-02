@@ -411,12 +411,16 @@ func NewWriterLevel(w io.Writer, level int) (*Writer, error) {
 		return nil, fmt.Errorf("lzo: invalid compression level: %d", level)
 	}
 	z := new(Writer)
+	z.init(w, level)
+	return z, nil
+}
+
+func (z *Writer) init(w io.Writer, level int) {
 	z.ModTime = time.Now()
 	z.level = level
 	z.adler32 = adler32.New()
 	z.crc32 = crc32.NewIEEE()
 	z.w = io.MultiWriter(w, z.adler32, z.crc32)
-	return z, nil
 }
 
 func (z *Writer) writeHeader() error {
@@ -583,6 +587,14 @@ func (z *Writer) Write(p []byte) (int, error) {
 		return 0, z.err
 	}
 	return srcLen, z.err
+}
+
+// Reset discards the Writer's state and makes it equivalent to the
+// result of its original state from NewWriter or NewWriterLevel, but
+// writing to w instead. This permits reusing a Writer rather than
+// allocating a new one.
+func (z *Writer) Reset(w io.Writer) {
+	z.init(w, z.level)
 }
 
 // Close closes the Writer. It does not close the underlying io.Writer.
