@@ -416,6 +416,7 @@ func NewWriterLevel(w io.Writer, level int) (*Writer, error) {
 }
 
 func (z *Writer) init(w io.Writer, level int) {
+	z.compressor = nil
 	z.ModTime = time.Now()
 	z.level = level
 	z.adler32 = adler32.New()
