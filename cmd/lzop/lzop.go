@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/cyberdelia/lzo"
 	"io"
 	"os"
+
+	"github.com/cyberdelia/lzo"
 )
 
 var (
