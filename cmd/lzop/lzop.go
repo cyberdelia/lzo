@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io"
+	"log"
 	"os"
 
 	"github.com/cyberdelia/lzo"
@@ -64,6 +64,7 @@ func compress(level int, path string) error {
 }
 
 func main() {
+	log.SetFlags(0)
 	flag.Parse()
 	path := flag.Arg(0)
 	var err error
@@ -73,6 +74,6 @@ func main() {
 		err = compress(*level, path)
 	}
 	if err != nil {
-		fmt.Println("lzop:", err)
+		log.Println("lzop:", err)
 	}
 }
