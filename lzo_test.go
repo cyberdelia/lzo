@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"runtime"
 	"testing"
+	"testing/quick"
 )
 
 type lzoTest struct {
@@ -268,30 +269,33 @@ func TestDecompressor(t *testing.T) {
 	}
 }
 
-func TestRoundTrip(t *testing.T) {
+func roundTrip(name string, payload []byte) bool {
 	buf := new(bytes.Buffer)
+
 	w := NewWriter(buf)
-	w.Name = "name"
-	if _, err := w.Write([]byte("payload")); err != nil {
-		t.Fatalf("Write: %v", err)
+	w.Name = name
+	if _, err := w.Write(payload); err != nil {
+		return false
 	}
+	w.Close()
 
 	r, err := NewReader(buf)
 	if err != nil {
-		t.Fatalf("NewReader: %v", err)
+		return false
 	}
+	defer r.Close()
+
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		t.Fatalf("ReadAll: %v", err)
+		return false
 	}
-	if string(b) != "payload" {
-		t.Fatalf("payload is %q, want %q", string(b), "payload")
-	}
-	if r.Name != "name" {
-		t.Fatalf("name is %q, want %q", r.Name, "name")
-	}
-	if err := r.Close(); err != nil {
-		t.Fatalf("Reader.Close: %v", err)
+
+	return bytes.Equal(b, payload) && r.Name == name
+}
+
+func TestRoundTrip(t *testing.T) {
+	if err := quick.Check(roundTrip, nil); err != nil {
+		t.Error(err)
 	}
 }
 
