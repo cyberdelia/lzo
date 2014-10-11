@@ -28,7 +28,7 @@ const (
 	BestSpeed          = 3
 	BestCompression    = 9
 	DefaultCompression = -1
-	Version            = 0x1030
+	version            = 0x1030
 	flagAdler32D       = 1 << 0
 	flagAdler32C       = 1 << 1
 	flagStdin          = 1 << 2
@@ -428,7 +428,7 @@ func (z *Writer) writeHeader() error {
 	z.adler32.Reset()
 	z.crc32.Reset()
 	// Write version
-	err = z.write(uint16(Version & 0xffff))
+	err = z.write(uint16(version & 0xffff))
 	if err != nil {
 		return err
 	}
