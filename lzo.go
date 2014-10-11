@@ -47,22 +47,17 @@ const (
 )
 
 var (
-	lzoMagic   = []byte{0x89, 0x4c, 0x5a, 0x4f, 0x00, 0x0d, 0x0a, 0x1a, 0x0a}
-	ErrHeader  = errors.New("lzo: invalid header")
-	ErrVersion = errors.New("lzo: incompatible version")
-	ErrMethod  = errors.New("lzo: incompatible method")
-	ErrCorrupt = errors.New("lzo: data corruption")
+	lzoMagic  = []byte{0x89, 0x4c, 0x5a, 0x4f, 0x00, 0x0d, 0x0a, 0x1a, 0x0a}
+	lzoErrors = []string{
+		1: "data corrupted",
+		2: "out of memory",
+		4: "input overrun",
+		5: "output overrun",
+		6: "data corrupted",
+		7: "eof not found",
+		8: "input not consumed",
+	}
 )
-
-var lzoErrors = []string{
-	1: "data corrupted",
-	2: "out of memory",
-	4: "input overrun",
-	5: "output overrun",
-	6: "data corrupted",
-	7: "eof not found",
-	8: "input not consumed",
-}
 
 func init() {
 	if err := C.lzo_initialize(); err != 0 {
@@ -82,8 +77,8 @@ func (e errno) Error() string {
 	return "lzo: errno " + strconv.Itoa(int(e))
 }
 
-// Lzop file stores a header giving metadata about the compressed file.
-// That header is exposed as the fields of the Writer and Reader structs.
+// Header metadata about the compressed file.
+// This header is exposed as the fields of the Writer and Reader structs.
 type Header struct {
 	ModTime time.Time
 	Name    string
@@ -121,7 +116,7 @@ func (z *Reader) readHeader() error {
 		return err
 	}
 	if !bytes.Equal(z.buf[0:len(lzoMagic)], lzoMagic) {
-		return ErrHeader
+		return errors.New("lzo: invalid header")
 	}
 	z.crc32.Reset()
 	z.adler32.Reset()
@@ -132,7 +127,7 @@ func (z *Reader) readHeader() error {
 		return err
 	}
 	if version < 0x0900 {
-		return ErrHeader
+		return errors.New("lzo: invalid header")
 	}
 	// Read library version needed to extract
 	var libraryVersion uint16
@@ -146,10 +141,10 @@ func (z *Reader) readHeader() error {
 			return err
 		}
 		if libraryVersion > version {
-			return ErrVersion
+			return errors.New("lzo: incompatible version")
 		}
 		if libraryVersion < 0x0900 {
-			return ErrHeader
+			return errors.New("lzo: invalid header")
 		}
 	}
 	// Read method
@@ -230,10 +225,10 @@ func (z *Reader) readHeader() error {
 		return err
 	}
 	if checksumHeader != checksum {
-		return ErrHeader
+		return errors.New("lzo: invalid header")
 	}
 	if method <= 0 {
-		return ErrMethod
+		return errors.New("lzo: incompatible method")
 	}
 	return nil
 }
@@ -260,7 +255,7 @@ func (z *Reader) nextBlock() {
 		return
 	}
 	if srcLen <= 0 || srcLen > dstLen {
-		z.err = ErrCorrupt
+		z.err = errors.New("lzo: data corruption")
 		return
 	}
 	// Read checksum of uncompressed block
@@ -310,7 +305,7 @@ func (z *Reader) nextBlock() {
 		z.adler32.Reset()
 		z.adler32.Write(block)
 		if srcChecksum != z.adler32.Sum32() {
-			z.err = ErrCorrupt
+			z.err = errors.New("lzo: data corruption")
 			return
 		}
 	}
@@ -318,7 +313,7 @@ func (z *Reader) nextBlock() {
 		z.crc32.Reset()
 		z.crc32.Write(block)
 		if srcChecksum != z.crc32.Sum32() {
-			z.err = ErrCorrupt
+			z.err = errors.New("lzo: data corruption")
 			return
 		}
 	}
@@ -337,7 +332,7 @@ func (z *Reader) nextBlock() {
 		z.adler32.Reset()
 		z.adler32.Write(data)
 		if dstChecksum != z.adler32.Sum32() {
-			z.err = ErrCorrupt
+			z.err = errors.New("lzo: data corruption")
 			return
 		}
 	}
@@ -345,7 +340,7 @@ func (z *Reader) nextBlock() {
 		z.crc32.Reset()
 		z.crc32.Write(data)
 		if dstChecksum != z.crc32.Sum32() {
-			z.err = ErrCorrupt
+			z.err = errors.New("lzo: data corruption")
 			return
 		}
 	}
@@ -609,29 +604,29 @@ func lzoVersion() uint16 {
 }
 
 func lzoCompress(src []byte, compress func([]byte, []byte, *int) C.int) ([]byte, error) {
-	dst_size := 0
+	dstSize := 0
 	dst := make([]byte, lzoDestinationSize(len(src)))
-	err := compress(src, dst, &dst_size)
+	err := compress(src, dst, &dstSize)
 	if err != 0 {
 		return nil, fmt.Errorf("lzo: errno %d", err)
 	}
-	return dst[0:dst_size], nil
+	return dst[0:dstSize], nil
 }
 
 func lzoDestinationSize(n int) int {
 	return (n + n/16 + 64 + 3)
 }
 
-func lzoCompressSpeed(src []byte, dst []byte, dst_size *int) C.int {
+func lzoCompressSpeed(src []byte, dst []byte, dstSize *int) C.int {
 	wrkmem := make([]byte, int(C.lzo1x_1_mem_compress()))
 	return C.lzo1x_1_compress((*C.uchar)(unsafe.Pointer(&src[0])), C.lzo_uint(len(src)),
-		(*C.uchar)(unsafe.Pointer(&dst[0])), (*C.lzo_uint)(unsafe.Pointer(dst_size)),
+		(*C.uchar)(unsafe.Pointer(&dst[0])), (*C.lzo_uint)(unsafe.Pointer(dstSize)),
 		unsafe.Pointer(&wrkmem[0]))
 }
 
-func lzoCompressBest(src []byte, dst []byte, dst_size *int) C.int {
+func lzoCompressBest(src []byte, dst []byte, dstSize *int) C.int {
 	wrkmem := make([]byte, int(C.lzo1x_999_mem_compress()))
 	return C.lzo1x_999_compress((*C.uchar)(unsafe.Pointer(&src[0])), C.lzo_uint(len(src)),
-		(*C.uchar)(unsafe.Pointer(&dst[0])), (*C.lzo_uint)(unsafe.Pointer(dst_size)),
+		(*C.uchar)(unsafe.Pointer(&dst[0])), (*C.lzo_uint)(unsafe.Pointer(dstSize)),
 		unsafe.Pointer(&wrkmem[0]))
 }
