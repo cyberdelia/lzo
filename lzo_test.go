@@ -315,6 +315,7 @@ func TestWriterReset(t *testing.T) {
 }
 
 func BenchmarkDecompressor(b *testing.B) {
+	b.ReportAllocs()
 	b.StopTimer()
 	compressed, err := ioutil.ReadFile("testdata/pg135.txt.lzo")
 	if err != nil {
@@ -324,19 +325,14 @@ func BenchmarkDecompressor(b *testing.B) {
 	runtime.GC()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		in := bytes.NewReader(compressed)
-		r, err := NewReader(in)
-		if err != nil {
-			b.Fatal(err)
-		}
-		if _, err := io.Copy(ioutil.Discard, r); err != nil {
-			b.Fatal(err)
-		}
-		r.Close()
+		r, _ := NewReader(bytes.NewReader(compressed))
+		defer r.Close()
+		io.Copy(ioutil.Discard, r)
 	}
 }
 
 func BenchmarkCompressor(b *testing.B) {
+	b.ReportAllocs()
 	b.StopTimer()
 	text, err := ioutil.ReadFile("testdata/pg135.txt")
 	if err != nil {
@@ -346,13 +342,8 @@ func BenchmarkCompressor(b *testing.B) {
 	runtime.GC()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		w, err := NewWriterLevel(ioutil.Discard, DefaultCompression)
-		if err != nil {
-			b.Fatal(err)
-		}
+		w, _ := NewWriterLevel(ioutil.Discard, DefaultCompression)
 		defer w.Close()
-		if _, err := io.Copy(w, bytes.NewReader(text)); err != nil {
-			b.Fatal(err)
-		}
+		io.Copy(w, bytes.NewReader(text))
 	}
 }
