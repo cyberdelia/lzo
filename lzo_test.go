@@ -18,8 +18,8 @@ type lzoTest struct {
 }
 
 var lzoTests = []lzoTest{
-	{
-		"empty.txt",
+    {
+        "empty.txt",
 		"empty.txt",
 		"",
 		[]byte{

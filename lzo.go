@@ -154,8 +154,8 @@ func (z *Reader) readHeader() error {
 		return err
 	}
 	// Read level
-	var level uint8
 	if version >= 0x0940 {
+		var level uint8
 		err = z.read(&level)
 		if err != nil {
 			return err
@@ -167,8 +167,8 @@ func (z *Reader) readHeader() error {
 		return err
 	}
 	// Read filters
-	var filters uint32
 	if z.flags&flagFilter != 0 {
+		var filters uint32
 		err = z.read(&filters)
 		if err != nil {
 			return err
