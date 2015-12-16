@@ -111,8 +111,7 @@ func NewReader(r io.Reader) (*Reader, error) {
 
 func (z *Reader) readHeader() error {
 	// Read and check magic
-	_, err := io.ReadFull(z.r, z.buf[0:len(lzoMagic)])
-	if err != nil {
+	if _, err := io.ReadFull(z.r, z.buf[0:len(lzoMagic)]); err != nil {
 		return err
 	}
 	if !bytes.Equal(z.buf[0:len(lzoMagic)], lzoMagic) {
@@ -122,8 +121,7 @@ func (z *Reader) readHeader() error {
 	z.adler32.Reset()
 	// Read version
 	var version uint16
-	err = z.read(&version)
-	if err != nil {
+	if err := z.read(&version); err != nil {
 		return err
 	}
 	if version < 0x0900 {
@@ -131,13 +129,11 @@ func (z *Reader) readHeader() error {
 	}
 	// Read library version needed to extract
 	var libraryVersion uint16
-	err = z.read(&libraryVersion)
-	if err != nil {
+	if err := z.read(&libraryVersion); err != nil {
 		return err
 	}
 	if version >= 0x0940 {
-		err = z.read(&libraryVersion)
-		if err != nil {
+		if err := z.read(&libraryVersion); err != nil {
 			return err
 		}
 		if libraryVersion > version {
@@ -149,48 +145,41 @@ func (z *Reader) readHeader() error {
 	}
 	// Read method
 	var method uint8
-	err = z.read(&method)
-	if err != nil {
+	if err := z.read(&method); err != nil {
 		return err
 	}
 	// Read level
 	if version >= 0x0940 {
 		var level uint8
-		err = z.read(&level)
-		if err != nil {
+		if err := z.read(&level); err != nil {
 			return err
 		}
 	}
 	// Read flags
-	err = z.read(&z.flags)
-	if err != nil {
+	if err := z.read(&z.flags); err != nil {
 		return err
 	}
 	// Read filters
 	if z.flags&flagFilter != 0 {
 		var filters uint32
-		err = z.read(&filters)
-		if err != nil {
+		if err := z.read(&filters); err != nil {
 			return err
 		}
 	}
 	// Read mode
 	var mode uint32
-	err = z.read(&mode)
-	if err != nil {
+	if err := z.read(&mode); err != nil {
 		return err
 	}
 	// Read modification times
 	var modTime, modTimeHigh uint32
-	err = z.read(&modTime)
-	if err != nil {
+	if err := z.read(&modTime); err != nil {
 		return err
 	}
 	z.ModTime = time.Unix(int64(modTime), 0)
 	// Read mod time high
 	if version >= 0x0940 {
-		err = z.read(&modTimeHigh)
-		if err != nil {
+		if err := z.read(&modTimeHigh); err != nil {
 			return err
 		}
 	}
@@ -199,13 +188,11 @@ func (z *Reader) readHeader() error {
 	}
 	// Read name
 	var l uint8
-	err = z.read(&l)
-	if err != nil {
+	if err := z.read(&l); err != nil {
 		return err
 	}
 	if l > 0 {
-		_, err := io.ReadFull(z.r, z.buf[0:l])
-		if err != nil {
+		if _, err := io.ReadFull(z.r, z.buf[0:l]); err != nil {
 			return err
 		}
 		z.Name = string(z.buf[0:l])
@@ -220,8 +207,7 @@ func (z *Reader) readHeader() error {
 		z.adler32.Reset()
 	}
 	var checksumHeader uint32
-	err = z.read(&checksumHeader)
-	if err != nil {
+	if err := z.read(&checksumHeader); err != nil {
 		return err
 	}
 	if checksumHeader != checksum {
@@ -421,25 +407,21 @@ func (z *Writer) init(w io.Writer, level int) {
 
 func (z *Writer) writeHeader() error {
 	// Write magic numbers
-	_, err := z.w.Write(lzoMagic)
-	if err != nil {
+	if _, err := z.w.Write(lzoMagic); err != nil {
 		return err
 	}
 	z.adler32.Reset()
 	z.crc32.Reset()
 	// Write version
-	err = z.write(uint16(version & 0xffff))
-	if err != nil {
+	if err := z.write(uint16(version & 0xffff)); err != nil {
 		return err
 	}
 	// Write library version
-	err = z.write(uint16(lzoVersion() & 0xffff))
-	if err != nil {
+	if err := z.write(uint16(lzoVersion() & 0xffff)); err != nil {
 		return err
 	}
 	// Write library version needed to extract
-	err = z.write(uint16(0x0940))
-	if err != nil {
+	if err := z.write(uint16(0x0940)); err != nil {
 		return err
 	}
 	// Write method
@@ -451,13 +433,11 @@ func (z *Writer) writeHeader() error {
 		method = 1
 		level = 3
 	}
-	err = z.write(method)
-	if err != nil {
+	if err := z.write(method); err != nil {
 		return err
 	}
 	// Write level
-	err = z.write(level)
-	if err != nil {
+	if err := z.write(level); err != nil {
 		return err
 	}
 	// Write flags
@@ -468,39 +448,32 @@ func (z *Writer) writeHeader() error {
 		z.flags |= flagStdin
 		z.flags |= flagStdout
 	}
-	err = z.write(z.flags)
-	if err != nil {
+	if err := z.write(z.flags); err != nil {
 		return err
 	}
 	// Write mode
-	err = z.write(uint32(0))
-	if err != nil {
+	if err := z.write(uint32(0)); err != nil {
 		return err
 	}
 	// Write modification time
-	err = z.write(uint32(z.ModTime.Unix()))
-	if err != nil {
+	if err := z.write(uint32(z.ModTime.Unix())); err != nil {
 		return err
 	}
-	err = z.write(uint32(z.ModTime.Unix()) >> 16 >> 16)
-	if err != nil {
+	if err := z.write(uint32(z.ModTime.Unix()) >> 16 >> 16); err != nil {
 		return err
 	}
 	// Write file name
 	name := []byte(z.Name)
-	err = z.write(uint8(len(name)))
-	if err != nil {
+	if err := z.write(uint8(len(name))); err != nil {
 		return err
 	}
 	if z.Name != "" {
-		_, err := z.w.Write(name)
-		if err != nil {
+		if _, err := z.w.Write(name); err != nil {
 			return err
 		}
 	}
 	// Write header checksum
-	err = z.write(z.adler32.Sum32())
-	if err != nil {
+	if err := z.write(z.adler32.Sum32()); err != nil {
 		return err
 	}
 	z.adler32.Reset()
