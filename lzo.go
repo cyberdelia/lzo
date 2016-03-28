@@ -25,9 +25,11 @@ import (
 )
 
 const (
-	BestSpeed          = 3
+	// BestSpeed provides speed over better compression.
+	BestSpeed = 3
+	// BestCompression provides better compression over speed.
 	BestCompression    = 9
-	DefaultCompression = -1
+	defaultCompression = -1
 	version            = 0x1030
 	flagAdler32D       = 1 << 0
 	flagAdler32C       = 1 << 1
@@ -381,14 +383,14 @@ type Writer struct {
 // NewWriter creates a new Writer that satisfies writes by compressing data
 // written to w.
 func NewWriter(w io.Writer) *Writer {
-	z, _ := NewWriterLevel(w, DefaultCompression)
+	z, _ := NewWriterLevel(w, defaultCompression)
 	return z
 }
 
 // NewWriterLevel is like NewWriter but specifies the compression level instead
 // of assuming DefaultCompression.
 func NewWriterLevel(w io.Writer, level int) (*Writer, error) {
-	if level < DefaultCompression || level > BestCompression {
+	if level < defaultCompression || level > BestCompression {
 		return nil, fmt.Errorf("lzo: invalid compression level: %d", level)
 	}
 	z := new(Writer)

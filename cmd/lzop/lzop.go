@@ -37,10 +37,8 @@ func decompress(path string) error {
 func compress(level int, path string) error {
 	if level > lzo.BestCompression {
 		level = lzo.BestCompression
-	} else if level < lzo.BestSpeed {
-		level = lzo.BestSpeed
 	} else {
-		level = lzo.DefaultCompression
+		level = lzo.BestSpeed
 	}
 	input, err := os.Open(path)
 	if err != nil {
