@@ -18,8 +18,8 @@ type lzoTest struct {
 }
 
 var lzoTests = []lzoTest{
-    {
-        "empty.txt",
+	{
+		"empty.txt",
 		"empty.txt",
 		"",
 		[]byte{
@@ -342,7 +342,7 @@ func BenchmarkCompressor(b *testing.B) {
 	runtime.GC()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		w, _ := NewWriterLevel(ioutil.Discard, DefaultCompression)
+		w := NewWriter(ioutil.Discard)
 		defer w.Close()
 		io.Copy(w, bytes.NewReader(text))
 	}
