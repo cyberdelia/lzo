@@ -1,8 +1,9 @@
 language: go
-sudo: required
-before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq liblzo2-dev
+sudo: false
+addons:
+  apt:
+    packages:
+      - liblzo2-dev
 before_script:
   - go get golang.org/x/tools/cmd/cover
   - go get golang.org/x/tools/cmd/vet
