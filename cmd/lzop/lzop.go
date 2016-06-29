@@ -12,6 +12,7 @@ import (
 var (
 	uncompress = flag.Bool("d", false, "Decompress.")
 	level      = flag.Int("l", 3, "Compression level.")
+	index      = flag.Bool("index", false, "Create Index.")
 )
 
 func decompress(path string) error {
@@ -28,6 +29,14 @@ func decompress(path string) error {
 		return err
 	}
 	_, err = io.Copy(output, decompressor)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func createindex(path string) error {
+	err := lzo.CreateIndex(path)
 	if err != nil {
 		return err
 	}
@@ -76,6 +85,8 @@ func main() {
 	var err error
 	if *uncompress == true {
 		err = decompress(path)
+	} else if *index == true {
+		err = createindex(path)
 	} else {
 		err = compress(*level, path)
 	}
