@@ -4,7 +4,4 @@ addons:
   apt:
     packages:
       - liblzo2-dev
-before_script:
-  - go get golang.org/x/tools/cmd/cover
-  - go get golang.org/x/tools/cmd/vet
 script: go vet ./... && go test -race -bench=. -cover ./...
