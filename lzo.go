@@ -19,7 +19,6 @@ import (
 	"hash/adler32"
 	"hash/crc32"
 	"io"
-	"strconv"
 	"time"
 	"unsafe"
 )
@@ -73,10 +72,10 @@ func (e errno) Error() string {
 	if 0 <= int(e) && int(e) < len(lzoErrors) {
 		s := lzoErrors[e]
 		if s != "" {
-			return "lzo: " + s
+			return fmt.Sprintf("lzo: %s", s)
 		}
 	}
-	return "lzo: errno " + strconv.Itoa(int(e))
+	return fmt.Sprintf("lzo: errno %d", int(e))
 }
 
 // Header metadata about the compressed file.
