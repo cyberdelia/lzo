@@ -1,7 +1,0 @@
-language: go
-sudo: false
-addons:
-  apt:
-    packages:
-      - liblzo2-dev
-script: go vet ./... && go test -race -bench=. -cover ./...
